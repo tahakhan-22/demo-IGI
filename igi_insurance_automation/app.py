@@ -246,7 +246,7 @@ def policy_processing_module():
         return
     
     # Fetch latest email
-    if st.button("📥 Fetch Latest Email for Processing"):
+    if st.button("📥 Fetch Latest Email for Processing", key="fetch_email_btn"):
         with st.spinner("Fetching latest unread email..."):
             success, message, emails = gmail.read_unread_emails(max_results=1)
             
@@ -262,10 +262,10 @@ def policy_processing_module():
         email = st.session_state.email_to_process
         
         st.subheader("📧 Email Content")
-        st.text_area("Email Body", email['body'], height=200, key="email_body")
+        st.text_area("Email Body", email['body'], height=200, key="email_body_display")
         
         # Parse email
-        if st.button("🔍 Parse Email Data"):
+        if st.button("🔍 Parse Email Data", key="parse_email_btn"):
             with st.spinner("Parsing email data..."):
                 parser = EmailParser()
                 parsed_data = parser.parse_email(email['body'])
@@ -279,166 +279,351 @@ def policy_processing_module():
             st.subheader("📝 Auto-Filled Policy Form")
             
             with st.form("policy_form"):
+                # ========================================
+                # 1. CLIENT INFORMATION SECTION
+                # ========================================
                 st.write("**Client Information**")
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    client_name = st.text_input("Client Name", 
-                        value=parsed['client'].get('name', ''))
-                    client_cnic = st.text_input("CNIC", 
-                        value=parsed['client'].get('cnic', ''))
-                    client_phone = st.text_input("Phone", 
-                        value=parsed['client'].get('phone', ''))
-                
-                with col2:
-                    client_email = st.text_input("Email", 
-                        value=parsed['client'].get('email', ''))
-                    client_city = st.text_input("City", 
-                        value=parsed['client'].get('city', ''))
-                    client_address = st.text_area("Address", 
-                        value=parsed['client'].get('address', ''), height=100)
-                
-                st.write("**Vehicle Information**")
                 col1, col2, col3 = st.columns(3)
                 
                 with col1:
-                    vehicle_make = st.text_input("Make", 
-                        value=parsed['vehicle'].get('make', ''))
-                    vehicle_model = st.text_input("Model", 
-                        value=parsed['vehicle'].get('model', ''))
-                    vehicle_year = st.number_input("Year", 
-                        value=parsed['vehicle'].get('year', 2024), min_value=1990, max_value=2030)
+                    client_code = st.text_input("Client Code", 
+                        value=parsed['client'].get('client_code', ''), key="form_client_code")
+                    client_name = st.text_input("Client Name", 
+                        value=parsed['client'].get('client_name', ''), key="form_client_name")
+                    client_type = st.selectbox("Client Type", 
+                        ['Individual', 'Corporate'],
+                        index=0 if parsed['client'].get('client_type', 'Individual') == 'Individual' else 1,
+                        key="form_client_type")
                 
                 with col2:
-                    engine_number = st.text_input("Engine Number", 
-                        value=parsed['vehicle'].get('engine_number', ''))
-                    chassis_number = st.text_input("Chassis Number", 
-                        value=parsed['vehicle'].get('chassis_number', ''))
-                    registration_number = st.text_input("Registration Number", 
-                        value=parsed['vehicle'].get('registration_number', ''))
+                    cnic_no = st.text_input("CNIC No", 
+                        value=parsed['client'].get('cnic_no', ''), key="form_cnic_no")
+                    old_nic_no = st.text_input("Old NIC No", 
+                        value=parsed['client'].get('old_nic_no', ''), key="form_old_nic_no")
+                    ntn_no = st.text_input("NTN No", 
+                        value=parsed['client'].get('ntn_no', ''), key="form_ntn_no")
                 
                 with col3:
-                    vehicle_color = st.text_input("Color", 
-                        value=parsed['vehicle'].get('color', ''))
-                    fuel_type = st.selectbox("Fuel Type", 
-                        ['Petrol', 'Diesel', 'Electric', 'Hybrid'],
-                        index=0 if not parsed['vehicle'].get('fuel_type') else 
-                        ['Petrol', 'Diesel', 'Electric', 'Hybrid'].index(parsed['vehicle'].get('fuel_type', 'Petrol')))
+                    passport_no = st.text_input("Passport No", 
+                        value=parsed['client'].get('passport_no', ''), key="form_passport_no")
                 
-                st.write("**Policy Information**")
-                col1, col2 = st.columns(2)
+                # ========================================
+                # 2. CLIENT ADDRESS SECTION (with expander)
+                # ========================================
+                with st.expander("📍 Client Address", expanded=False):
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        address_type = st.selectbox("Address Type", 
+                            ['House', 'Office', 'Factory', 'Other'],
+                            index=['House', 'Office', 'Factory', 'Other'].index(
+                                parsed['client'].get('address_type', 'House')
+                            ) if parsed['client'].get('address_type', 'House') in ['House', 'Office', 'Factory', 'Other'] else 0,
+                            key="form_address_type")
+                        address_line = st.text_area("Address Line", 
+                            value=parsed['client'].get('address_line', ''), height=100, key="form_address_line")
+                        country = st.text_input("Country", 
+                            value=parsed['client'].get('country', 'Pakistan'), key="form_country")
+                        city = st.text_input("City", 
+                            value=parsed['client'].get('city', ''), key="form_city")
+                    
+                    with col2:
+                        phone_1 = st.text_input("Phone 1", 
+                            value=parsed['client'].get('phone_1', ''), key="form_phone_1")
+                        phone_2 = st.text_input("Phone 2", 
+                            value=parsed['client'].get('phone_2', ''), key="form_phone_2")
+                        fax = st.text_input("Fax", 
+                            value=parsed['client'].get('fax', ''), key="form_fax")
+                        email = st.text_input("Email", 
+                            value=parsed['client'].get('email', ''), key="form_email")
+                        is_primary = st.checkbox("Is Primary Address", value=True, key="form_is_primary")
+                
+                # ========================================
+                # 3. VEHICLE DETAILS (OD) SECTION
+                # ========================================
+                st.write("**Vehicle Details (OD)**")
+                col1, col2, col3 = st.columns(3)
                 
                 with col1:
+                    vehicle_sum_insured = st.number_input("Sum Insured (PKR)", 
+                        value=float(parsed['policy'].get('sum_insured', 1000000)), 
+                        min_value=0.0, step=10000.0, key="form_vehicle_sum_insured")
+                    vehicle_policy_type = st.text_input("Policy Type", 
+                        value=parsed['policy'].get('policy_type', 'New'), key="form_vehicle_policy_type")
+                    applied_for_registration = st.selectbox("Applied for Registration", 
+                        ['Yes', 'No'],
+                        index=0 if parsed['vehicle'].get('applied_for_registration', 'No') == 'Yes' else 1,
+                        key="form_applied_for_registration")
+                    registration_no = st.text_input("Registration No", 
+                        value=parsed['vehicle'].get('registration_no', ''), key="form_registration_no")
+                    engine_no = st.text_input("Engine No", 
+                        value=parsed['vehicle'].get('engine_no', ''), key="form_engine_no")
+                
+                with col2:
+                    chassis_no = st.text_input("Chassis No", 
+                        value=parsed['vehicle'].get('chassis_no', ''), key="form_chassis_no")
+                    make_model = st.text_input("Make/Model", 
+                        value=parsed['vehicle'].get('make_model', ''), key="form_make_model")
+                    passenger_capacity = st.number_input("Passenger Capacity", 
+                        value=parsed['vehicle'].get('passenger_capacity', 5), 
+                        min_value=1, max_value=100, key="form_passenger_capacity")
+                    body_type = st.text_input("Body Type", 
+                        value=parsed['vehicle'].get('body_type', ''), key="form_body_type")
+                    power_cc = st.number_input("Power (CC)", 
+                        value=parsed['vehicle'].get('power_cc', 1000), 
+                        min_value=0, max_value=10000, key="form_power_cc")
+                
+                with col3:
+                    color = st.text_input("Color", 
+                        value=parsed['vehicle'].get('color', ''), key="form_color")
+                    year_of_manufacturing = st.number_input("Year of Manufacturing", 
+                        value=parsed['vehicle'].get('year_of_manufacturing', 2024), 
+                        min_value=1990, max_value=2030, key="form_year_of_manufacturing")
+                    vehicle_age = datetime.now().year - year_of_manufacturing
+                    st.text_input("Vehicle Age (Auto-calculated)", 
+                        value=f"{vehicle_age} years", disabled=True, key="form_vehicle_age_display")
+                    keeper_name = st.text_input("Keeper Name", 
+                        value=parsed['vehicle'].get('keeper_name', ''), key="form_keeper_name")
+                    keeper_address = st.text_area("Keeper Address", 
+                        value=parsed['vehicle'].get('keeper_address', ''), height=70, key="form_keeper_address")
+                
+                # Additional vehicle fields
+                col1, col2 = st.columns(2)
+                with col1:
+                    accessories = st.text_area("Accessories", 
+                        value=parsed['vehicle'].get('accessories', ''), height=60, key="form_accessories")
+                    accessories_sum_insured = st.number_input("Accessories Sum Insured (PKR)", 
+                        value=float(parsed['vehicle'].get('accessories_sum_insured', 0)), 
+                        min_value=0.0, step=1000.0, key="form_accessories_sum_insured")
+                    license_no = st.text_input("License No", 
+                        value=parsed['vehicle'].get('license_no', ''), key="form_license_no")
+                
+                with col2:
+                    purchase_order_loan_no = st.text_input("Purchase Order/Loan No", 
+                        value=parsed['vehicle'].get('purchase_order_loan_no', ''), key="form_purchase_order_loan_no")
+                    other_information = st.text_area("Other Information", 
+                        value=parsed['vehicle'].get('other_information', ''), height=60, key="form_other_information")
+                    vehicle_mobile_phone = st.text_input("Mobile Phone", 
+                        value=parsed['vehicle'].get('mobile_phone', ''), key="form_vehicle_mobile_phone")
+                    vehicle_email = st.text_input("Vehicle Email", 
+                        value=parsed['vehicle'].get('email', ''), key="form_vehicle_email")
+                
+                # ========================================
+                # 4. POLICY INFORMATION SECTION
+                # ========================================
+                st.write("**Policy Information**")
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    base_document_no = st.text_input("Base Document No", 
+                        value=parsed['policy'].get('base_document_no', ''), key="form_base_document_no")
+                    document_no = st.text_input("Document No", 
+                        value=parsed['policy'].get('document_no', ''), key="form_document_no")
+                    business_class = st.text_input("Business Class", 
+                        value=parsed['policy'].get('business_class', 'Motor'), key="form_business_class")
+                    issue_date = st.date_input("Issue Date", 
+                        value=datetime.now().date(), key="form_issue_date")
+                
+                with col2:
+                    comm_date = st.date_input("Commencement Date", 
+                        value=datetime.now().date(), key="form_comm_date")
+                    expiry_date = st.date_input("Expiry Date", 
+                        value=(datetime.now() + timedelta(days=365)).date(), key="form_expiry_date")
+                    policy_type = st.selectbox("Policy Type", 
+                        ['New', 'Renewal', 'Endorsement'],
+                        index=['New', 'Renewal', 'Endorsement'].index(
+                            parsed['policy'].get('policy_type', 'New')
+                        ) if parsed['policy'].get('policy_type', 'New') in ['New', 'Renewal', 'Endorsement'] else 0,
+                        key="form_policy_type")
+                    region = st.text_input("Region", 
+                        value=parsed['policy'].get('region', ''), key="form_region")
+                
+                with col3:
+                    installment_mode = st.selectbox("Installment Mode", 
+                        ['Single', 'Monthly', 'Quarterly', 'Half-Yearly', 'Yearly'],
+                        index=['Single', 'Monthly', 'Quarterly', 'Half-Yearly', 'Yearly'].index(
+                            parsed['policy'].get('installment_mode', 'Single')
+                        ) if parsed['policy'].get('installment_mode', 'Single') in ['Single', 'Monthly', 'Quarterly', 'Half-Yearly', 'Yearly'] else 0,
+                        key="form_installment_mode")
+                    geographical_limit = st.text_input("Geographical Limit", 
+                        value=parsed['policy'].get('geographical_limit', 'Pakistan'), key="form_geographical_limit")
+                    currency = st.text_input("Currency", 
+                        value=parsed['policy'].get('currency', 'PKR'), key="form_currency")
+                    bodily_injury_lol = st.number_input("Bodily Injury LOL (PKR)", 
+                        value=float(parsed['policy'].get('bodily_injury_lol', 0)), 
+                        min_value=0.0, step=10000.0, key="form_bodily_injury_lol")
+                
+                # Additional policy fields
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    property_damage_lol = st.number_input("Property Damage LOL (PKR)", 
+                        value=float(parsed['policy'].get('property_damage_lol', 0)), 
+                        min_value=0.0, step=10000.0, key="form_property_damage_lol")
                     sum_insured = st.number_input("Sum Insured (PKR)", 
                         value=float(parsed['policy'].get('sum_insured', 1000000)), 
-                        min_value=0.0, step=10000.0)
-                    commencement_date = st.date_input("Commencement Date", 
-                        value=datetime.now().date())
+                        min_value=0.0, step=10000.0, key="form_sum_insured")
                 
                 with col2:
-                    coverage_months = st.number_input("Coverage Period (months)", 
-                        value=parsed['policy'].get('coverage_months', 12), 
-                        min_value=1, max_value=60)
-                    expiry_date = commencement_date + timedelta(days=coverage_months * 30)
-                    st.date_input("Expiry Date (Auto-calculated)", value=expiry_date, disabled=True)
-                
-                # Calculate premium
-                calculator = PremiumCalculator()
-                vehicle_age = datetime.now().year - vehicle_year
-                premium = calculator.calculate_motor_premium(
-                    sum_insured=sum_insured,
-                    vehicle_age=vehicle_age,
-                    policy_type='comprehensive'
-                )
-                
-                st.write("**Premium Calculation**")
-                col1, col2, col3 = st.columns(3)
-                
-                with col1:
-                    st.metric("Gross Premium", f"PKR {premium['gross_premium']:,.2f}")
-                    st.metric("Net Premium", f"PKR {premium['net_premium']:,.2f}")
-                
-                with col2:
-                    st.metric("Total Charges", f"PKR {premium['total_charges']:,.2f}")
-                    st.metric("Total Discount", f"PKR {premium['total_discount']:,.2f}")
+                    gross_premium = st.number_input("Gross Premium (PKR)", 
+                        value=float(parsed['policy'].get('gross_premium', 0)), 
+                        min_value=0.0, step=100.0, key="form_gross_premium")
+                    charges = st.number_input("Charges (PKR)", 
+                        value=float(parsed['policy'].get('charges', 0)), 
+                        min_value=0.0, step=100.0, key="form_charges")
                 
                 with col3:
-                    st.metric("Premium Payable", f"PKR {premium['premium_payable']:,.2f}", 
-                             delta=None, delta_color="normal")
+                    premium_payable = st.number_input("Premium Payable (PKR)", 
+                        value=float(parsed['policy'].get('premium_payable', 0)), 
+                        min_value=0.0, step=100.0, key="form_premium_payable")
+                
+                # Calculate premium if values not provided
+                if gross_premium == 0:
+                    calculator = PremiumCalculator()
+                    premium = calculator.calculate_motor_premium(
+                        sum_insured=sum_insured,
+                        vehicle_age=vehicle_age,
+                        policy_type='comprehensive'
+                    )
+                    
+                    st.write("**Premium Calculation (Auto)**")
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        st.metric("Gross Premium", f"PKR {premium['gross_premium']:,.2f}")
+                        st.metric("Net Premium", f"PKR {premium['net_premium']:,.2f}")
+                    
+                    with col2:
+                        st.metric("Total Charges", f"PKR {premium['total_charges']:,.2f}")
+                        st.metric("Total Discount", f"PKR {premium['total_discount']:,.2f}")
+                    
+                    with col3:
+                        st.metric("Premium Payable", f"PKR {premium['premium_payable']:,.2f}")
+                    
+                    # Update values with calculated premium
+                    gross_premium = premium['gross_premium']
+                    charges = premium['total_charges']
+                    premium_payable = premium['premium_payable']
                 
                 # Submit button
                 submitted = st.form_submit_button("✅ Complete Policy")
                 
                 if submitted:
                     with st.spinner("Processing policy..."):
-                        # Create policy
                         policy_service = PolicyService()
                         
                         # Create client
                         client_data = {
-                            'name': client_name,
-                            'cnic': client_cnic,
-                            'phone': client_phone,
-                            'email': client_email,
-                            'address': client_address,
-                            'city': client_city,
-                            'client_type': 'Individual'
+                            'client_code': client_code,
+                            'client_name': client_name,
+                            'client_type': client_type,
+                            'cnic_no': cnic_no,
+                            'old_nic_no': old_nic_no,
+                            'ntn_no': ntn_no,
+                            'passport_no': passport_no
                         }
                         
                         success, message, client = policy_service.create_client(client_data)
                         
                         if success:
+                            # Create client address
+                            address_data = {
+                                'address_type': address_type,
+                                'address_line': address_line,
+                                'country': country,
+                                'city': city,
+                                'phone_1': phone_1,
+                                'phone_2': phone_2,
+                                'fax': fax,
+                                'email': email,
+                                'is_primary': is_primary
+                            }
+                            policy_service.create_client_address(address_data, client.client_id)
+                            
                             # Create policy
                             policy_data = {
-                                'commencement_date': commencement_date,
+                                'base_document_no': base_document_no,
+                                'document_no': document_no,
+                                'business_class': business_class,
+                                'issue_date': issue_date,
+                                'comm_date': comm_date,
                                 'expiry_date': expiry_date,
+                                'policy_type': policy_type,
+                                'region': region,
+                                'installment_mode': installment_mode,
+                                'geographical_limit': geographical_limit,
+                                'currency': currency,
                                 'sum_insured': sum_insured,
-                                'gross_premium': premium['gross_premium'],
-                                'net_premium': premium['net_premium'],
-                                'premium_payable': premium['premium_payable']
+                                'gross_premium': gross_premium,
+                                'charges': charges,
+                                'premium_payable': premium_payable,
+                                'bodily_injury_lol': bodily_injury_lol,
+                                'property_damage_lol': property_damage_lol
                             }
                             
                             success, message, policy = policy_service.create_policy(
-                                policy_data, client.id
+                                policy_data, client.client_id
                             )
                             
                             if success:
-                                # Create vehicle
-                                vehicle_data = {
-                                    'make': vehicle_make,
-                                    'model': vehicle_model,
-                                    'year_of_manufacturing': vehicle_year,
-                                    'engine_number': engine_number,
-                                    'chassis_number': chassis_number,
-                                    'registration_number': registration_number,
-                                    'color': vehicle_color,
-                                    'fuel_type': fuel_type,
-                                    'sum_insured': sum_insured
+                                # Create policy schedule first
+                                schedule_data = {
+                                    'sum_insured': vehicle_sum_insured
                                 }
-                                
-                                success, message, vehicle = policy_service.create_vehicle(
-                                    vehicle_data, policy.id
+                                success, message, schedule = policy_service.create_policy_schedule(
+                                    schedule_data, policy.policy_id
                                 )
                                 
                                 if success:
-                                    # Execute RPA
-                                    rpa = get_rpa_engine()
-                                    rpa.fill_streamlit_form({
-                                        'client': client_data,
-                                        'vehicle': vehicle_data,
-                                        'policy': policy_data
-                                    })
+                                    # Create vehicle with schedule_id
+                                    vehicle_data = {
+                                        'sum_insured': vehicle_sum_insured,
+                                        'policy_type': vehicle_policy_type,
+                                        'applied_for_registration': applied_for_registration,
+                                        'registration_no': registration_no,
+                                        'engine_no': engine_no,
+                                        'chassis_no': chassis_no,
+                                        'make_model': make_model,
+                                        'passenger_capacity': passenger_capacity,
+                                        'body_type': body_type,
+                                        'power_cc': power_cc,
+                                        'color': color,
+                                        'year_of_manufacturing': year_of_manufacturing,
+                                        'keeper_name': keeper_name,
+                                        'keeper_address': keeper_address,
+                                        'accessories': accessories,
+                                        'accessories_sum_insured': accessories_sum_insured,
+                                        'license_no': license_no,
+                                        'purchase_order_loan_no': purchase_order_loan_no,
+                                        'other_information': other_information,
+                                        'mobile_phone': vehicle_mobile_phone,
+                                        'email': vehicle_email
+                                    }
                                     
-                                    st.success("✅ Policy created successfully!")
-                                    st.info(f"Policy Number: {policy.policy_number}")
+                                    success, message, vehicle = policy_service.create_vehicle(
+                                        vehicle_data, schedule.schedule_id
+                                    )
                                     
-                                    # Store for cover letter generation
-                                    st.session_state.created_policy_id = policy.id
-                                    
-                                    # Mark email as read
-                                    gmail.mark_as_read(email['id'])
+                                    if success:
+                                        # Execute RPA
+                                        rpa = get_rpa_engine()
+                                        rpa.fill_streamlit_form({
+                                            'client': client_data,
+                                            'vehicle': vehicle_data,
+                                            'policy': policy_data
+                                        })
+                                        
+                                        st.success("✅ Policy created successfully!")
+                                        st.info(f"Policy Document No: {policy.document_no}")
+                                        
+                                        # Store for cover letter generation
+                                        st.session_state.created_policy_id = policy.policy_id
+                                        
+                                        # Mark email as read
+                                        gmail.mark_as_read(email['id'])
+                                    else:
+                                        st.error(f"Error creating vehicle: {message}")
                                 else:
-                                    st.error(f"Error creating vehicle: {message}")
+                                    st.error(f"Error creating schedule: {message}")
                             else:
                                 st.error(f"Error creating policy: {message}")
                         else:
