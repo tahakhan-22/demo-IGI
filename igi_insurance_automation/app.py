@@ -170,7 +170,7 @@ def email_automation_module():
                     if emails:
                         for email in emails:
                             with st.expander(f"📨 {email['subject']} - From: {email['from']}"):
-                                st.text_area("Email Body", email['body'], height=200)
+                                st.text_area("Email Body", email['body'], height=200, key=f"email_body_{email['id']}")
                                 
                                 if st.button(f"Mark as Read", key=f"read_{email['id']}"):
                                     success, msg = gmail.mark_as_read(email['id'])
