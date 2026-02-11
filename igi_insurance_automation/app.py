@@ -291,7 +291,7 @@ def policy_processing_module():
         col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
         
         with col1:
-            if st.button("⬅️ Previous Email", disabled=(current_idx == 0), key=f"prev_email_btn_{current_idx}"):
+            if st.button("⬅️ Previous Email", disabled=(current_idx == 0), key="prev_email_btn"):
                 st.session_state.current_email_index -= 1
                 st.session_state.email_to_process = st.session_state.fetched_emails[st.session_state.current_email_index]
                 # Clear parsed data when switching emails
@@ -300,7 +300,7 @@ def policy_processing_module():
                 st.rerun()
         
         with col2:
-            if st.button("➡️ Next Email", disabled=(current_idx >= total_emails - 1), key=f"next_email_btn_{current_idx}"):
+            if st.button("➡️ Next Email", disabled=(current_idx >= total_emails - 1), key="next_email_btn"):
                 st.session_state.current_email_index += 1
                 st.session_state.email_to_process = st.session_state.fetched_emails[st.session_state.current_email_index]
                 # Clear parsed data when switching emails
@@ -309,7 +309,7 @@ def policy_processing_module():
                 st.rerun()
         
         with col3:
-            if st.button("⏭️ Skip & Mark as Read", key=f"skip_email_btn_{current_idx}"):
+            if st.button("⏭️ Skip & Mark as Read", key="skip_email_btn"):
                 # Mark current email as read
                 gmail.mark_as_read(email['id'])
                 # Move to next email
@@ -327,9 +327,6 @@ def policy_processing_module():
             st.write("")  # Empty column for spacing
         
         st.markdown("---")
-        
-        # Update email_to_process to current email
-        st.session_state.email_to_process = email
     
     # Process email if available
     if 'email_to_process' in st.session_state and st.session_state.fetched_emails:
