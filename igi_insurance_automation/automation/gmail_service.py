@@ -6,13 +6,20 @@ Handles email sending and reading
 import os
 import base64
 import pickle
+import sys
 from email.mime.text import MIMEText
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-from ..config import GMAIL_SCOPES, CREDENTIALS_FILE, TOKEN_FILE
+
+# Handle imports for both module and direct execution
+try:
+    from ..config import GMAIL_SCOPES, CREDENTIALS_FILE, TOKEN_FILE
+except ImportError:
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from config import GMAIL_SCOPES, CREDENTIALS_FILE, TOKEN_FILE
 
 
 class GmailService:

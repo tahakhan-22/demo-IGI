@@ -3,6 +3,8 @@ RPA Engine using Selenium
 Template-based automation for form filling and submission
 """
 
+import sys
+import os
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -10,10 +12,18 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
-from ..config import RPA_TIMEOUT, RPA_HEADLESS
-from ..database.db import get_session
-from ..database.models import AutomationLog
 import time
+
+# Handle imports for both module and direct execution
+try:
+    from ..config import RPA_TIMEOUT, RPA_HEADLESS
+    from ..database.db import get_session
+    from ..database.models import AutomationLog
+except ImportError:
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from config import RPA_TIMEOUT, RPA_HEADLESS
+    from database.db import get_session
+    from database.models import AutomationLog
 
 
 class RPAEngine:

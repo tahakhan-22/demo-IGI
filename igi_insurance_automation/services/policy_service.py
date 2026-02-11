@@ -3,13 +3,25 @@ Policy service for CRUD operations
 Handles policy creation, updates, and validation
 """
 
+import sys
+import os
 from datetime import datetime, timedelta
 from sqlalchemy.exc import IntegrityError
-from ..database.db import get_session
-from ..database.models import (
-    Client, Policy, Product, Vehicle, Discount, Clause, 
-    Warranty, ComputationalSheet, AutomationLog
-)
+
+# Handle imports for both module and direct execution
+try:
+    from ..database.db import get_session
+    from ..database.models import (
+        Client, Policy, Product, Vehicle, Discount, Clause, 
+        Warranty, ComputationalSheet, AutomationLog
+    )
+except ImportError:
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from database.db import get_session
+    from database.models import (
+        Client, Policy, Product, Vehicle, Discount, Clause, 
+        Warranty, ComputationalSheet, AutomationLog
+    )
 
 
 class PolicyService:

@@ -3,10 +3,17 @@ Cover letter generator with PDF export
 Generates structured insurance cover letters
 """
 
+import sys
+import os
 from datetime import datetime
 from fpdf import FPDF
-import os
-from ..config import COMPANY_NAME, COMPANY_ADDRESS, COMPANY_PHONE, COMPANY_EMAIL, PDF_OUTPUT_DIR
+
+# Handle imports for both module and direct execution
+try:
+    from ..config import COMPANY_NAME, COMPANY_ADDRESS, COMPANY_PHONE, COMPANY_EMAIL, PDF_OUTPUT_DIR
+except ImportError:
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from config import COMPANY_NAME, COMPANY_ADDRESS, COMPANY_PHONE, COMPANY_EMAIL, PDF_OUTPUT_DIR
 
 
 class CoverLetterGenerator:

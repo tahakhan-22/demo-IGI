@@ -59,8 +59,9 @@ def check_system_status():
     
     # Check Database
     try:
+        from sqlalchemy import text
         session = get_session()
-        session.execute("SELECT 1")
+        session.execute(text("SELECT 1"))
         session.close()
         status['database'] = True
     except:

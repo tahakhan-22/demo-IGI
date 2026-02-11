@@ -4,10 +4,20 @@ Scans CSV file for due payments and sends email reminders
 """
 
 import pandas as pd
+import sys
+import os
 from datetime import datetime, timedelta
-from ..config import DUES_CSV_PATH, DUE_PAYMENT_DAYS_THRESHOLD
-from ..database.db import get_session
-from ..database.models import AutomationLog
+
+# Handle imports for both module and direct execution
+try:
+    from ..config import DUES_CSV_PATH, DUE_PAYMENT_DAYS_THRESHOLD
+    from ..database.db import get_session
+    from ..database.models import AutomationLog
+except ImportError:
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from config import DUES_CSV_PATH, DUE_PAYMENT_DAYS_THRESHOLD
+    from database.db import get_session
+    from database.models import AutomationLog
 
 
 class CSVScanner:
