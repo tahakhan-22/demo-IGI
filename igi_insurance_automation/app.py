@@ -13,7 +13,12 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from database.db import init_db, get_session
-from database.models import AutomationLog, Policy, Client, Vehicle
+from database.models import (
+    AutomationLog, Policy, Client, ClientAddress, ClientBank,
+    PolicySchedule, VehicleDetail, DiscountType, PolicyDiscount,
+    DepreciationExcess, DeductibleInsurance, ClauseMaster, PolicyClause,
+    Warranty, Agent, PolicyAgent, DocumentDescription
+)
 from automation.gmail_service import GmailService
 from automation.email_parser import EmailParser
 from automation.csv_scanner import CSVScanner
@@ -643,75 +648,124 @@ def cover_letter_module():
         session.close()
         
         if policies:
-            policy_options = {f"{p.policy_number} - {p.client.name}": p.id for p in policies}
+            policy_options = {f"{p.document_no} - {p.client.client_name}": p.policy_id for p in policies}
             
-            selected = st.selectbox("Select Policy", list(policy_options.keys()))
+            selected = st.selectbox("Select Policy", list(policy_options.keys()), key="cover_letter_policy_select")
             
-            if st.button("📄 Generate Cover Letter"):
+            if st.button("📄 Generate Cover Letter", key="generate_cover_letter_btn"):
                 policy_id = policy_options[selected]
                 
                 with st.spinner("Generating cover letter..."):
                     session = get_session()
-                    policy = session.query(Policy).filter_by(id=policy_id).first()
+                    policy = session.query(Policy).filter_by(policy_id=policy_id).first()
                     
                     if policy:
                         # Prepare data
+                        # Get primary address if exists
+                        primary_address = None
+                        if policy.client.addresses:
+                            primary_address = next((a for a in policy.client.addresses if a.is_primary), policy.client.addresses[0])
+                        
                         policy_data = {
                             'client': {
-                                'name': policy.client.name,
-                                'cnic': policy.client.cnic,
-                                'address': policy.client.address,
-                                'phone': policy.client.phone,
-                                'email': policy.client.email
+                                'name': policy.client.client_name,
+                                'client_code': policy.client.client_code or 'N/A',
+                                'cnic': policy.client.cnic_no or 'N/A',
+                                'ntn': policy.client.ntn_no or 'N/A',
+                                'address': primary_address.address_line if primary_address else 'N/A',
+                                'city': primary_address.city if primary_address else 'N/A',
+                                'phone': primary_address.phone_1 if primary_address else 'N/A',
+                                'email': primary_address.email if primary_address else 'N/A'
                             },
                             'policy': {
-                                'policy_number': policy.policy_number,
+                                'policy_number': policy.document_no,
+                                'base_document_no': policy.base_document_no or 'N/A',
+                                'business_class': policy.business_class or 'Motor',
+                                'policy_type': policy.policy_type or 'New',
                                 'coverage_type': 'Comprehensive',
-                                'commencement_date': str(policy.commencement_date),
+                                'commencement_date': str(policy.comm_date),
                                 'expiry_date': str(policy.expiry_date),
-                                'sum_insured': policy.sum_insured
+                                'issue_date': str(policy.issue_date),
+                                'region': policy.region or 'N/A',
+                                'geographical_limit': policy.geographical_limit or 'Pakistan',
+                                'currency': policy.currency or 'PKR',
+                                'sum_insured': policy.sum_insured,
+                                'bodily_injury_lol': policy.bodily_injury_lol or 0,
+                                'property_damage_lol': policy.property_damage_lol or 0
                             },
                             'premium': {
                                 'basic_premium': policy.gross_premium,
                                 'gross_premium': policy.gross_premium,
-                                'total_discount': 0,
-                                'net_premium': policy.net_premium,
-                                'stamp_duty': 40,
-                                'fid_fee': 100,
-                                'provincial_tax': policy.net_premium * 0.01,
-                                'total_charges': 140 + policy.net_premium * 0.01,
+                                'total_discount': 0,  # Calculate from discounts
+                                'net_premium': policy.gross_premium,  # After discounts
+                                'total_charges': policy.charges or 0,
                                 'premium_payable': policy.premium_payable
                             },
                             'clauses': [],
                             'warranties': []
                         }
                         
-                        # Add vehicle if exists
-                        if policy.vehicles:
-                            vehicle = policy.vehicles[0]
-                            policy_data['vehicle'] = {
-                                'make': vehicle.make,
-                                'model': vehicle.model,
-                                'year_of_manufacturing': vehicle.year_of_manufacturing,
-                                'engine_number': vehicle.engine_number,
-                                'chassis_number': vehicle.chassis_number,
-                                'registration_number': vehicle.registration_number,
-                                'color': vehicle.color,
-                                'fuel_type': vehicle.fuel_type
-                            }
+                        # Calculate total discounts
+                        if policy.discounts:
+                            total_discount = sum(d.amount for d in policy.discounts)
+                            policy_data['premium']['total_discount'] = total_discount
+                            policy_data['premium']['net_premium'] = policy.gross_premium - total_discount
+                        
+                        # Add vehicle if exists (from schedules)
+                        if policy.schedules:
+                            for schedule in policy.schedules:
+                                if schedule.vehicle:
+                                    vehicle = schedule.vehicle
+                                    policy_data['vehicle'] = {
+                                        'make_model': vehicle.make_model,
+                                        'year_of_manufacturing': vehicle.year_of_manufacturing,
+                                        'vehicle_age': vehicle.vehicle_age or 0,
+                                        'engine_number': vehicle.engine_no,
+                                        'chassis_number': vehicle.chassis_no,
+                                        'registration_number': vehicle.registration_no or 'N/A',
+                                        'color': vehicle.color or 'N/A',
+                                        'passenger_capacity': vehicle.passenger_capacity or 'N/A',
+                                        'body_type': vehicle.body_type or 'N/A',
+                                        'power_cc': vehicle.power_cc or 'N/A',
+                                        'keeper_name': vehicle.keeper_name or 'N/A',
+                                        'accessories': vehicle.accessories or 'N/A'
+                                    }
+                                    break
+                        
+                        # Add clauses
+                        if policy.policy_clauses:
+                            for pc in policy.policy_clauses:
+                                if pc.is_checked and pc.clause:
+                                    policy_data['clauses'].append({
+                                        'clause_code': pc.clause.clause_code,
+                                        'clause_text': pc.clause.clause_name,
+                                        'is_applicable': True,
+                                        'limit': pc.clause_limit
+                                    })
+                        
+                        # Add warranties
+                        if policy.warranties:
+                            for w in policy.warranties:
+                                if w.is_applicable:
+                                    policy_data['warranties'].append({
+                                        'warranty_code': w.warranty_type or 'N/A',
+                                        'warranty_text': w.description,
+                                        'is_applicable': True,
+                                        'tracker_details': w.tracker_details
+                                    })
                         
                         # Generate letter
                         generator = CoverLetterGenerator()
                         letter = generator.generate_cover_letter(policy_data)
                         
                         st.subheader("📄 Cover Letter")
-                        st.text_area("", letter, height=600)
+                        st.text_area("", letter, height=600, key="cover_letter_text")
                         
                         # Generate PDF
                         col1, col2 = st.columns(2)
                         
                         with col1:
-                            if st.button("📥 Download as PDF"):
+                            if st.button("📥 Download as PDF", key="download_pdf_btn"):
                                 success, message, file_path = generator.generate_pdf(policy_data)
                                 if success:
                                     st.success(message)
@@ -735,9 +789,14 @@ def database_viewer_module():
         session = get_session()
         
         # Tabs for different views
-        tab1, tab2, tab3 = st.tabs(["Policies", "Clients", "Vehicles"])
+        tabs = st.tabs([
+            "Policies", "Clients", "Addresses", "Vehicles", 
+            "Schedules", "Discounts", "Clauses", "Warranties", 
+            "Agents", "Documents"
+        ])
         
-        with tab1:
+        # Tab 0: Policies
+        with tabs[0]:
             st.subheader("All Policies")
             policies = session.query(Policy).all()
             
@@ -745,13 +804,13 @@ def database_viewer_module():
                 policy_data = []
                 for p in policies:
                     policy_data.append({
-                        'Policy Number': p.policy_number,
-                        'Client': p.client.name,
-                        'Status': p.status,
-                        'Commencement': str(p.commencement_date),
+                        'Document No': p.document_no,
+                        'Client': p.client.client_name,
+                        'Policy Type': p.policy_type or 'N/A',
+                        'Commencement': str(p.comm_date),
                         'Expiry': str(p.expiry_date),
-                        'Sum Insured': f"PKR {p.sum_insured:,.2f}",
-                        'Premium Payable': f"PKR {p.premium_payable:,.2f}"
+                        'Sum Insured': f"{p.currency} {p.sum_insured:,.2f}",
+                        'Premium Payable': f"{p.currency} {p.premium_payable:,.2f}"
                     })
                 
                 df = pd.DataFrame(policy_data)
@@ -759,7 +818,8 @@ def database_viewer_module():
             else:
                 st.info("No policies found")
         
-        with tab2:
+        # Tab 1: Clients
+        with tabs[1]:
             st.subheader("All Clients")
             clients = session.query(Client).all()
             
@@ -767,11 +827,11 @@ def database_viewer_module():
                 client_data = []
                 for c in clients:
                     client_data.append({
-                        'Name': c.name,
-                        'CNIC': c.cnic,
-                        'Phone': c.phone,
-                        'Email': c.email,
-                        'City': c.city,
+                        'Client Code': c.client_code or 'N/A',
+                        'Name': c.client_name,
+                        'Type': c.client_type or 'N/A',
+                        'CNIC': c.cnic_no or 'N/A',
+                        'NTN': c.ntn_no or 'N/A',
                         'Policies': len(c.policies)
                     })
                 
@@ -780,20 +840,46 @@ def database_viewer_module():
             else:
                 st.info("No clients found")
         
-        with tab3:
+        # Tab 2: Addresses
+        with tabs[2]:
+            st.subheader("Client Addresses")
+            addresses = session.query(ClientAddress).all()
+            
+            if addresses:
+                address_data = []
+                for a in addresses:
+                    address_data.append({
+                        'Client': a.client.client_name,
+                        'Type': a.address_type or 'N/A',
+                        'Address': a.address_line,
+                        'City': a.city,
+                        'Country': a.country,
+                        'Phone 1': a.phone_1 or 'N/A',
+                        'Primary': '✓' if a.is_primary else '✗'
+                    })
+                
+                df = pd.DataFrame(address_data)
+                st.dataframe(df, use_container_width=True)
+            else:
+                st.info("No addresses found")
+        
+        # Tab 3: Vehicles
+        with tabs[3]:
             st.subheader("All Vehicles")
-            vehicles = session.query(Vehicle).all()
+            vehicles = session.query(VehicleDetail).all()
             
             if vehicles:
                 vehicle_data = []
                 for v in vehicles:
                     vehicle_data.append({
-                        'Make/Model': f"{v.make} {v.model}",
+                        'Make/Model': v.make_model,
                         'Year': v.year_of_manufacturing,
-                        'Engine No': v.engine_number,
-                        'Chassis No': v.chassis_number,
-                        'Registration': v.registration_number,
-                        'Policy': v.policy.policy_number
+                        'Age': v.vehicle_age or 'N/A',
+                        'Engine No': v.engine_no,
+                        'Chassis No': v.chassis_no,
+                        'Registration': v.registration_no or 'N/A',
+                        'Color': v.color or 'N/A',
+                        'Sum Insured': f"PKR {v.sum_insured:,.2f}"
                     })
                 
                 df = pd.DataFrame(vehicle_data)
@@ -801,10 +887,139 @@ def database_viewer_module():
             else:
                 st.info("No vehicles found")
         
+        # Tab 4: Schedules
+        with tabs[4]:
+            st.subheader("Policy Schedules")
+            schedules = session.query(PolicySchedule).all()
+            
+            if schedules:
+                schedule_data = []
+                for s in schedules:
+                    schedule_data.append({
+                        'Policy': s.policy.document_no,
+                        'Item No': s.item_no or 'N/A',
+                        'Sum Insured': f"PKR {s.sum_insured:,.2f}",
+                        'Basic Premium': f"PKR {s.basic_premium:,.2f}",
+                        'Gross Premium': f"PKR {s.gross_premium:,.2f}",
+                        'Risk/Peril Type': s.risk_peril_type or 'N/A'
+                    })
+                
+                df = pd.DataFrame(schedule_data)
+                st.dataframe(df, use_container_width=True)
+            else:
+                st.info("No schedules found")
+        
+        # Tab 5: Discounts
+        with tabs[5]:
+            st.subheader("Policy Discounts")
+            discounts = session.query(PolicyDiscount).all()
+            
+            if discounts:
+                discount_data = []
+                for d in discounts:
+                    discount_data.append({
+                        'Policy': d.policy.document_no,
+                        'Discount Type': d.discount_type.discount_name if d.discount_type else 'N/A',
+                        'Rate %': d.rate_percent or 'N/A',
+                        'Amount': f"PKR {d.amount:,.2f}"
+                    })
+                
+                df = pd.DataFrame(discount_data)
+                st.dataframe(df, use_container_width=True)
+            else:
+                st.info("No discounts found")
+        
+        # Tab 6: Clauses
+        with tabs[6]:
+            st.subheader("Policy Clauses")
+            clauses = session.query(PolicyClause).all()
+            
+            if clauses:
+                clause_data = []
+                for c in clauses:
+                    clause_data.append({
+                        'Policy': c.policy.document_no,
+                        'Clause Code': c.clause.clause_code if c.clause else 'N/A',
+                        'Clause Name': c.clause.clause_name if c.clause else 'N/A',
+                        'Limit': f"PKR {c.clause_limit:,.2f}" if c.clause_limit else 'N/A',
+                        'Checked': '✓' if c.is_checked else '✗'
+                    })
+                
+                df = pd.DataFrame(clause_data)
+                st.dataframe(df, use_container_width=True)
+            else:
+                st.info("No clauses found")
+        
+        # Tab 7: Warranties
+        with tabs[7]:
+            st.subheader("Warranties")
+            warranties = session.query(Warranty).all()
+            
+            if warranties:
+                warranty_data = []
+                for w in warranties:
+                    warranty_data.append({
+                        'Policy': w.policy.document_no,
+                        'Type': w.warranty_type or 'N/A',
+                        'Description': w.description[:50] + '...' if len(w.description) > 50 else w.description,
+                        'Tracker Details': w.tracker_details[:30] + '...' if w.tracker_details and len(w.tracker_details) > 30 else w.tracker_details or 'N/A',
+                        'Applicable': '✓' if w.is_applicable else '✗'
+                    })
+                
+                df = pd.DataFrame(warranty_data)
+                st.dataframe(df, use_container_width=True)
+            else:
+                st.info("No warranties found")
+        
+        # Tab 8: Agents
+        with tabs[8]:
+            st.subheader("Policy Agents & Commission")
+            policy_agents = session.query(PolicyAgent).all()
+            
+            if policy_agents:
+                agent_data = []
+                for pa in policy_agents:
+                    agent_data.append({
+                        'Policy': pa.policy.document_no,
+                        'Agent Code': pa.agent.agent_code if pa.agent else 'N/A',
+                        'Agent Name': pa.agent.agent_name if pa.agent else 'N/A',
+                        'Apportionment %': pa.apportionment_rate_percent,
+                        'Commission': f"PKR {pa.commission_amount:,.2f}",
+                        'Premium Share %': pa.premium_share_percent
+                    })
+                
+                df = pd.DataFrame(agent_data)
+                st.dataframe(df, use_container_width=True)
+            else:
+                st.info("No agent commissions found")
+        
+        # Tab 9: Documents
+        with tabs[9]:
+            st.subheader("Document Descriptions")
+            documents = session.query(DocumentDescription).all()
+            
+            if documents:
+                document_data = []
+                for doc in documents:
+                    document_data.append({
+                        'Policy': doc.policy.document_no,
+                        'Document Type': doc.document_type,
+                        'Description': doc.description[:50] + '...' if len(doc.description) > 50 else doc.description,
+                        'File Path': doc.file_path or 'N/A',
+                        'Uploaded': str(doc.uploaded_at) if doc.uploaded_at else 'N/A'
+                    })
+                
+                df = pd.DataFrame(document_data)
+                st.dataframe(df, use_container_width=True)
+            else:
+                st.info("No documents found")
+        
         session.close()
     
     except Exception as e:
         st.error(f"Error: {str(e)}")
+        import traceback
+        st.error(traceback.format_exc())
 
 
 def main():
