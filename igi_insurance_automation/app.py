@@ -28,6 +28,12 @@ from services.premium_calculator import PremiumCalculator
 from services.cover_letter_generator import CoverLetterGenerator
 from config import COMPANY_NAME
 
+# Constants
+ADDRESS_TYPES = ['House', 'Office', 'Factory', 'Other']
+POLICY_TYPES = ['New', 'Renewal', 'Endorsement']
+INSTALLMENT_MODES = ['Single', 'Monthly', 'Quarterly', 'Half-Yearly', 'Yearly']
+CLIENT_TYPES = ['Individual', 'Corporate']
+
 # Page configuration
 st.set_page_config(
     page_title="IGI Insurance Automation System",
@@ -296,7 +302,7 @@ def policy_processing_module():
                     client_name = st.text_input("Client Name", 
                         value=parsed['client'].get('client_name', ''), key="form_client_name")
                     client_type = st.selectbox("Client Type", 
-                        ['Individual', 'Corporate'],
+                        CLIENT_TYPES,
                         index=0 if parsed['client'].get('client_type', 'Individual') == 'Individual' else 1,
                         key="form_client_type")
                 
@@ -320,10 +326,10 @@ def policy_processing_module():
                     
                     with col1:
                         address_type = st.selectbox("Address Type", 
-                            ['House', 'Office', 'Factory', 'Other'],
-                            index=['House', 'Office', 'Factory', 'Other'].index(
+                            ADDRESS_TYPES,
+                            index=ADDRESS_TYPES.index(
                                 parsed['client'].get('address_type', 'House')
-                            ) if parsed['client'].get('address_type', 'House') in ['House', 'Office', 'Factory', 'Other'] else 0,
+                            ) if parsed['client'].get('address_type', 'House') in ADDRESS_TYPES else 0,
                             key="form_address_type")
                         address_line = st.text_area("Address Line", 
                             value=parsed['client'].get('address_line', ''), height=100, key="form_address_line")
@@ -435,20 +441,20 @@ def policy_processing_module():
                     expiry_date = st.date_input("Expiry Date", 
                         value=(datetime.now() + timedelta(days=365)).date(), key="form_expiry_date")
                     policy_type = st.selectbox("Policy Type", 
-                        ['New', 'Renewal', 'Endorsement'],
-                        index=['New', 'Renewal', 'Endorsement'].index(
+                        POLICY_TYPES,
+                        index=POLICY_TYPES.index(
                             parsed['policy'].get('policy_type', 'New')
-                        ) if parsed['policy'].get('policy_type', 'New') in ['New', 'Renewal', 'Endorsement'] else 0,
+                        ) if parsed['policy'].get('policy_type', 'New') in POLICY_TYPES else 0,
                         key="form_policy_type")
                     region = st.text_input("Region", 
                         value=parsed['policy'].get('region', ''), key="form_region")
                 
                 with col3:
                     installment_mode = st.selectbox("Installment Mode", 
-                        ['Single', 'Monthly', 'Quarterly', 'Half-Yearly', 'Yearly'],
-                        index=['Single', 'Monthly', 'Quarterly', 'Half-Yearly', 'Yearly'].index(
+                        INSTALLMENT_MODES,
+                        index=INSTALLMENT_MODES.index(
                             parsed['policy'].get('installment_mode', 'Single')
-                        ) if parsed['policy'].get('installment_mode', 'Single') in ['Single', 'Monthly', 'Quarterly', 'Half-Yearly', 'Yearly'] else 0,
+                        ) if parsed['policy'].get('installment_mode', 'Single') in INSTALLMENT_MODES else 0,
                         key="form_installment_mode")
                     geographical_limit = st.text_input("Geographical Limit", 
                         value=parsed['policy'].get('geographical_limit', 'Pakistan'), key="form_geographical_limit")
@@ -1017,9 +1023,10 @@ def database_viewer_module():
         session.close()
     
     except Exception as e:
-        st.error(f"Error: {str(e)}")
-        import traceback
-        st.error(traceback.format_exc())
+        st.error(f"Error loading database viewer: {str(e)}")
+        # Log full traceback for debugging
+        import logging
+        logging.exception("Database viewer error:")
 
 
 def main():
