@@ -204,8 +204,10 @@ class PolicyService:
     
     def _generate_policy_number(self):
         """Generate unique policy number"""
+        import random
         timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-        return f"IGI-{timestamp}"
+        random_suffix = random.randint(1000, 9999)
+        return f"IGI-{timestamp}-{random_suffix}"
     
     def _get_or_create_default_product(self):
         """Get or create default product"""
