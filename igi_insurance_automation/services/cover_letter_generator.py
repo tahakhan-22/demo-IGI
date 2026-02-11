@@ -50,9 +50,13 @@ class CoverLetterGenerator:
         letter.append("")
         letter.append("CLIENT DETAILS:")
         client = policy_data.get('client', {})
+        letter.append(f"  Client Code: {client.get('client_code', 'N/A')}")
         letter.append(f"  Name: {client.get('name', 'N/A')}")
         letter.append(f"  CNIC: {client.get('cnic', 'N/A')}")
+        if client.get('ntn'):
+            letter.append(f"  NTN: {client.get('ntn', 'N/A')}")
         letter.append(f"  Address: {client.get('address', 'N/A')}")
+        letter.append(f"  City: {client.get('city', 'N/A')}")
         letter.append(f"  Phone: {client.get('phone', 'N/A')}")
         letter.append(f"  Email: {client.get('email', 'N/A')}")
         letter.append("")
@@ -61,40 +65,61 @@ class CoverLetterGenerator:
         if 'vehicle' in policy_data:
             letter.append("VEHICLE DETAILS:")
             vehicle = policy_data['vehicle']
-            letter.append(f"  Make & Model: {vehicle.get('make', 'N/A')} {vehicle.get('model', 'N/A')}")
+            letter.append(f"  Make & Model: {vehicle.get('make_model', 'N/A')}")
             letter.append(f"  Year of Manufacturing: {vehicle.get('year_of_manufacturing', 'N/A')}")
+            letter.append(f"  Vehicle Age: {vehicle.get('vehicle_age', 'N/A')} years")
             letter.append(f"  Engine Number: {vehicle.get('engine_number', 'N/A')}")
             letter.append(f"  Chassis Number: {vehicle.get('chassis_number', 'N/A')}")
             letter.append(f"  Registration Number: {vehicle.get('registration_number', 'N/A')}")
             letter.append(f"  Color: {vehicle.get('color', 'N/A')}")
-            letter.append(f"  Fuel Type: {vehicle.get('fuel_type', 'N/A')}")
+            if vehicle.get('passenger_capacity'):
+                letter.append(f"  Passenger Capacity: {vehicle.get('passenger_capacity', 'N/A')}")
+            if vehicle.get('body_type'):
+                letter.append(f"  Body Type: {vehicle.get('body_type', 'N/A')}")
+            if vehicle.get('power_cc'):
+                letter.append(f"  Engine Capacity: {vehicle.get('power_cc', 'N/A')} cc")
+            if vehicle.get('keeper_name'):
+                letter.append(f"  Keeper Name: {vehicle.get('keeper_name', 'N/A')}")
+            if vehicle.get('accessories') and vehicle['accessories'] != 'N/A':
+                letter.append(f"  Accessories: {vehicle.get('accessories', 'N/A')}")
             letter.append("")
         
         # Policy Terms
         letter.append("POLICY TERMS:")
         policy = policy_data.get('policy', {})
         letter.append(f"  Policy Number: {policy.get('policy_number', 'N/A')}")
+        if policy.get('base_document_no'):
+            letter.append(f"  Base Document No: {policy.get('base_document_no', 'N/A')}")
+        letter.append(f"  Business Class: {policy.get('business_class', 'Motor')}")
+        letter.append(f"  Policy Type: {policy.get('policy_type', 'New')}")
         letter.append(f"  Coverage Type: {policy.get('coverage_type', 'Comprehensive')}")
+        letter.append(f"  Issue Date: {policy.get('issue_date', 'N/A')}")
         letter.append(f"  Commencement Date: {policy.get('commencement_date', 'N/A')}")
         letter.append(f"  Expiry Date: {policy.get('expiry_date', 'N/A')}")
-        letter.append(f"  Sum Insured: PKR {policy.get('sum_insured', 0):,.2f}")
+        letter.append(f"  Geographical Limit: {policy.get('geographical_limit', 'Pakistan')}")
+        if policy.get('region'):
+            letter.append(f"  Region: {policy.get('region', 'N/A')}")
+        currency = policy.get('currency', 'PKR')
+        letter.append(f"  Sum Insured: {currency} {policy.get('sum_insured', 0):,.2f}")
+        if policy.get('bodily_injury_lol'):
+            letter.append(f"  Bodily Injury Limit: {currency} {policy.get('bodily_injury_lol', 0):,.2f}")
+        if policy.get('property_damage_lol'):
+            letter.append(f"  Property Damage Limit: {currency} {policy.get('property_damage_lol', 0):,.2f}")
         letter.append("")
         
         # Premium Summary
         letter.append("PREMIUM SUMMARY:")
         premium = policy_data.get('premium', {})
-        letter.append(f"  Basic Premium: PKR {premium.get('basic_premium', 0):,.2f}")
-        letter.append(f"  Gross Premium: PKR {premium.get('gross_premium', 0):,.2f}")
-        letter.append(f"  Total Discounts: PKR {premium.get('total_discount', 0):,.2f}")
-        letter.append(f"  Net Premium: PKR {premium.get('net_premium', 0):,.2f}")
+        letter.append(f"  Basic Premium: {currency} {premium.get('basic_premium', 0):,.2f}")
+        letter.append(f"  Gross Premium: {currency} {premium.get('gross_premium', 0):,.2f}")
+        if premium.get('total_discount', 0) > 0:
+            letter.append(f"  Total Discounts: {currency} {premium.get('total_discount', 0):,.2f}")
+            letter.append(f"  Net Premium: {currency} {premium.get('net_premium', 0):,.2f}")
         letter.append("")
         letter.append("  Charges:")
-        letter.append(f"    Stamp Duty: PKR {premium.get('stamp_duty', 0):,.2f}")
-        letter.append(f"    FID Fee: PKR {premium.get('fid_fee', 0):,.2f}")
-        letter.append(f"    Provincial Tax: PKR {premium.get('provincial_tax', 0):,.2f}")
-        letter.append(f"  Total Charges: PKR {premium.get('total_charges', 0):,.2f}")
+        letter.append(f"    Total Charges: {currency} {premium.get('total_charges', 0):,.2f}")
         letter.append("")
-        letter.append(f"  PREMIUM PAYABLE: PKR {premium.get('premium_payable', 0):,.2f}")
+        letter.append(f"  PREMIUM PAYABLE: {currency} {premium.get('premium_payable', 0):,.2f}")
         letter.append("")
         
         # Clauses
@@ -102,7 +127,10 @@ class CoverLetterGenerator:
             letter.append("POLICY CLAUSES:")
             for clause in policy_data['clauses']:
                 if clause.get('is_applicable', True):
-                    letter.append(f"  [{clause.get('clause_code', '')}] {clause.get('clause_text', '')}")
+                    clause_line = f"  [{clause.get('clause_code', '')}] {clause.get('clause_text', '')}"
+                    if clause.get('limit'):
+                        clause_line += f" - Limit: {currency} {clause.get('limit'):,.2f}"
+                    letter.append(clause_line)
             letter.append("")
         
         # Warranties
@@ -110,7 +138,10 @@ class CoverLetterGenerator:
             letter.append("WARRANTIES:")
             for warranty in policy_data['warranties']:
                 if warranty.get('is_applicable', True):
-                    letter.append(f"  [{warranty.get('warranty_code', '')}] {warranty.get('warranty_text', '')}")
+                    warranty_line = f"  [{warranty.get('warranty_code', '')}] {warranty.get('warranty_text', '')}"
+                    if warranty.get('tracker_details'):
+                        warranty_line += f" - {warranty.get('tracker_details')}"
+                    letter.append(warranty_line)
             letter.append("")
         
         # Footer
