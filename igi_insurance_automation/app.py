@@ -245,20 +245,91 @@ def policy_processing_module():
         st.warning("Gmail authentication required")
         return
     
-    # Fetch latest email
-    if st.button("📥 Fetch Latest Email for Processing"):
-        with st.spinner("Fetching latest unread email..."):
-            success, message, emails = gmail.read_unread_emails(max_results=1)
+    # Initialize session state for email navigation
+    if 'fetched_emails' not in st.session_state:
+        st.session_state.fetched_emails = []
+    if 'current_email_index' not in st.session_state:
+        st.session_state.current_email_index = 0
+    
+    # Fetch emails
+    if st.button("📥 Fetch Emails for Processing", key="fetch_emails_btn"):
+        with st.spinner("Fetching unread emails..."):
+            success, message, emails = gmail.read_unread_emails(max_results=20)
             
             if success and emails:
-                email = emails[0]
-                st.session_state.email_to_process = email
-                st.success("Email fetched successfully!")
+                st.session_state.fetched_emails = emails
+                st.session_state.current_email_index = 0
+                st.session_state.email_to_process = emails[0]
+                # Clear any parsed data from previous session
+                if 'parsed_data' in st.session_state:
+                    del st.session_state.parsed_data
+                st.success(f"Fetched {len(emails)} unread email(s)!")
             else:
                 st.error("No unread emails found")
+                st.session_state.fetched_emails = []
+    
+    # Display email navigation and process email if available
+    if st.session_state.fetched_emails:
+        total_emails = len(st.session_state.fetched_emails)
+        current_idx = st.session_state.current_email_index
+        
+        # Check if we're past the end (all emails processed)
+        if current_idx >= total_emails:
+            st.info("✅ No more emails to process. Click 'Fetch Emails' to refresh.")
+            return
+        
+        # Navigation UI (above email body)
+        st.subheader("📧 Email Navigation")
+        
+        # Email counter and subject/sender preview
+        email = st.session_state.fetched_emails[current_idx]
+        st.write(f"**Email {current_idx + 1} of {total_emails}**")
+        st.write(f"**Subject:** {email['subject']}")
+        st.write(f"**From:** {email['from']}")
+        
+        # Navigation buttons in columns
+        col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
+        
+        with col1:
+            if st.button("⬅️ Previous Email", disabled=(current_idx == 0), key="prev_email_btn"):
+                st.session_state.current_email_index -= 1
+                st.session_state.email_to_process = st.session_state.fetched_emails[st.session_state.current_email_index]
+                # Clear parsed data when switching emails
+                if 'parsed_data' in st.session_state:
+                    del st.session_state.parsed_data
+                st.rerun()
+        
+        with col2:
+            if st.button("➡️ Next Email", disabled=(current_idx >= total_emails - 1), key="next_email_btn"):
+                st.session_state.current_email_index += 1
+                st.session_state.email_to_process = st.session_state.fetched_emails[st.session_state.current_email_index]
+                # Clear parsed data when switching emails
+                if 'parsed_data' in st.session_state:
+                    del st.session_state.parsed_data
+                st.rerun()
+        
+        with col3:
+            if st.button("⏭️ Skip & Mark as Read", key="skip_email_btn"):
+                # Mark current email as read
+                gmail.mark_as_read(email['id'])
+                # Move to next email
+                st.session_state.current_email_index += 1
+                # Clear parsed data
+                if 'parsed_data' in st.session_state:
+                    del st.session_state.parsed_data
+                # Update email_to_process if there are more emails
+                if st.session_state.current_email_index < total_emails:
+                    st.session_state.email_to_process = st.session_state.fetched_emails[st.session_state.current_email_index]
+                st.success("Email marked as read and skipped!")
+                st.rerun()
+        
+        with col4:
+            st.write("")  # Empty column for spacing
+        
+        st.markdown("---")
     
     # Process email if available
-    if 'email_to_process' in st.session_state:
+    if 'email_to_process' in st.session_state and st.session_state.fetched_emails:
         email = st.session_state.email_to_process
         
         st.subheader("📧 Email Content")
