@@ -1,0 +1,13 @@
+client_name,email,phone,due_date,amount_due
+Ahmed Ali,ahmed.ali@example.com,+92-300-1234567,2026-02-20,15000
+Fatima Khan,fatima.khan@example.com,+92-321-9876543,2026-02-25,22000
+Hassan Raza,hassan.raza@example.com,+92-333-5551234,2026-03-05,18500
+Ayesha Malik,ayesha.malik@example.com,+92-345-8889999,2026-03-10,25000
+Bilal Ahmed,bilal.ahmed@example.com,+92-300-7778888,2026-01-15,30000
+Sara Imran,sara.imran@example.com,+92-321-4445555,2026-02-28,17500
+Usman Tariq,usman.tariq@example.com,+92-333-2223333,2026-03-12,20000
+Zainab Hussain,zainab.hussain@example.com,+92-345-6667777,2026-04-01,19000
+Kamran Shah,kamran.shah@example.com,+92-300-9990000,2026-02-18,21500
+Mehreen Akhtar,mehreen.akhtar@example.com,+92-321-1112222,2026-03-20,16500
+Asad Javed,asad.javed@example.com,+92-333-3334444,2026-02-22,28000
+Hina Butt,hina.butt@example.com,+92-345-5556666,2026-03-15,23500
